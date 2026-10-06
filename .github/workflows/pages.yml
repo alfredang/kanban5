@@ -1,32 +1,74 @@
-name: Deploy to GitHub Pages
+name: CI and deploy to GitHub Pages
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
-  deploy:
+  ci:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Syntax-check the script block
+        run: |
+          node -e "const h=require('fs').readFileSync('index.html','utf8');new Function(h.match(/<script>([\s\S]*?)<\/script>/)[1]);console.log('ok')"
+
+      - name: Constraint scan (only the FormSubmit URL may match)
+        run: |
+          matches=$(grep -nE 'localStorage|sessionStorage|indexedDB|document\.cookie|alert\(|confirm\(|!important|UOB|https?://' index.html | grep -v 'const FORMSUBMIT_ENDPOINT = "https://formsubmit.co/ajax/' || true)
+          if [ -n "$matches" ]; then
+            echo "::error::Constraint scan found disallowed content:"
+            echo "$matches"
+            exit 1
+          fi
+          echo "Constraint scan clean."
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    needs: ci
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
+
+      - name: Assemble site (index.html and docs/ only)
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r docs _site/
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
+
       - id: deployment
         uses: actions/deploy-pages@v4

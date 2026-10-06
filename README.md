@@ -1,5 +1,8 @@
 # kanban5 — IT PMO Kanban Board
 
+[![CI and deploy](https://github.com/alfredang/kanban5/actions/workflows/pages.yml/badge.svg)](https://github.com/alfredang/kanban5/actions/workflows/pages.yml)
+[![Live site](https://img.shields.io/badge/live-alfredang.github.io%2Fkanban5-2ea44f)](https://alfredang.github.io/kanban5/)
+
 A single-file Kanban board for tracking IT project tasks, built for a **fictitious** bank's internal demo and training use. It's vanilla HTML, CSS and JavaScript in one `index.html`, with no frameworks and no build step.
 
 **Live demo:** https://alfredang.github.io/kanban5/
@@ -43,9 +46,29 @@ const FORMSUBMIT_ENDPOINT = "https://formsubmit.co/ajax/YOUR_EMAIL@example.com";
 
 To use it, replace the placeholder with a real address. FormSubmit emails that address once with an activation link. Until you activate it, submissions return `success: "false"`, and the app shows a warning toast. The card is still added either way, and email subjects are prefixed with `[IT PMO]`.
 
-## Deployment
+## Tech constraints
 
-Every push to `main` deploys to GitHub Pages through [.github/workflows/pages.yml](.github/workflows/pages.yml). The workflow publishes the repo root as-is, because there's no build.
+- Vanilla HTML, CSS and JavaScript in a single file. There are no frameworks, libraries, bundlers or npm.
+- It runs from `file://`. The only network call is the optional FormSubmit request.
+- There are no external resources: no CDNs, web fonts or image files. It uses the system font stack and inline SVG/Unicode icons.
+- There's no persistence. It doesn't use `localStorage`, `sessionStorage`, IndexedDB or cookies.
+
+## Project structure
+
+```
+index.html                    # The whole app: markup, <style> and <script>
+docs/screenshot.png           # README screenshot
+.github/workflows/pages.yml   # CI and GitHub Pages deploy
+CLAUDE.md                     # Architecture notes and project rules
+README.md
+```
+
+## CI/CD
+
+[.github/workflows/pages.yml](.github/workflows/pages.yml) has two jobs:
+
+- **`ci`** runs on pushes and pull requests to `main`. It syntax-checks the script block with Node, runs the constraint scan from `CLAUDE.md` (only the FormSubmit URL may match) and runs a [gitleaks](https://github.com/gitleaks/gitleaks) secret scan.
+- **`deploy`** runs after `ci` passes, on pushes to `main` and manual runs. It copies `index.html` and `docs/` into `_site/` and publishes that folder to GitHub Pages. There's no build step.
 
 ## Contributing conventions
 
@@ -65,3 +88,7 @@ There's no test suite. Check changes manually in a browser. To syntax-check the 
 ```bash
 node -e "const h=require('fs').readFileSync('index.html','utf8');new Function(h.match(/<script>([\s\S]*?)<\/script>/)[1]);console.log('ok')"
 ```
+
+## Licence
+
+No licence has been chosen yet, so all rights are reserved by default. Add a `LICENSE` file before others reuse the code.
